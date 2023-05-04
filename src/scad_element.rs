@@ -1,6 +1,6 @@
 use nalgebra as na;
-use std::string::*;
 use std::vec::Vec;
+use std::{default, string::*};
 
 use crate::scad_type::*;
 
@@ -139,7 +139,7 @@ impl ScadType for PolygonParameters {
             + &self.convexity.get_code()
     }
 }
-/////////////////////////////////////////////////////////////////////////////
+
 #[derive(Clone)]
 pub enum OffsetType {
     Delta(f32),
@@ -154,7 +154,97 @@ impl ScadType for OffsetType {
         }
     }
 }
-/////////////////////////////////////////////////////////////////////////////
+
+#[derive(Clone, Default)]
+pub enum HAlign {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
+impl ScadType for HAlign {
+    fn get_code(&self) -> String {
+        match self {
+            HAlign::Left => "left".into(),
+            HAlign::Center => "center".into(),
+            HAlign::Right => "right".into(),
+        }
+    }
+}
+
+#[derive(Clone, Default)]
+pub enum VAlign {
+    #[default]
+    Baseline,
+    Top,
+    Center,
+    Bottom,
+}
+
+impl ScadType for VAlign {
+    fn get_code(&self) -> String {
+        match self {
+            VAlign::Baseline => "baseline",
+            VAlign::Center => "center",
+            VAlign::Top => "top",
+            VAlign::Bottom => "bottom",
+        }.into()
+    }
+}
+
+#[derive(Clone, Default)]
+pub enum TextDirection {
+    #[default]
+    Ltr,
+    Rtl,
+    Ttb,
+    Btt,
+}
+
+impl ScadType for TextDirection {
+    fn get_code(&self) -> String {
+        match self {
+            TextDirection::Ltr => "ltr",
+            TextDirection::Rtl => "rtl",
+            TextDirection::Ttb => "ttb",
+            TextDirection::Btt => "btt",
+        }.into()
+    }
+}
+
+#[derive(Clone)]
+pub struct TextArgs {
+    pub text: String,
+    pub size: f32,
+    pub font: Option<String>,
+    pub halign: HAlign,
+    pub valign: VAlign,
+    pub spacing: f32,
+    pub direction: TextDirection,
+    pub language: String,
+    pub script: String,
+}
+
+impl TextArgs {
+    pub fn new(text: String) -> Self {
+        Self {
+            text,
+            size: 10.0,
+            font: None,
+            halign: HAlign::Left,
+            valign: VAlign::Baseline,
+            spacing: 1.0,
+            direction: TextDirection::Ltr,
+            language: "en".into(),
+            script: "latin".into(),
+        }
+    }
+}
+
+fn named_argument_code(key: &str, value: impl ScadType) -> String {
+    format!("{}={}", key, value.get_code())
+}
 
 /// Different kinds of scad modules and function. These are parameters
 /// for `ScadObjects`.
@@ -197,6 +287,8 @@ pub enum ScadElement {
     Rotate2d(f32),
     Translate2d(na::Vector2<f32>),
     Scale2d(na::Vector2<f32>),
+
+    Text(TextArgs),
 
     Color(na::Vector3<f32>),
     NamedColor(String),
@@ -315,6 +407,33 @@ impl ScadElement {
             ScadElement::Hull => String::from("hull()"),
             ScadElement::Minkowski => String::from("minkowski()"),
             ScadElement::Intersection => String::from("intersection()"),
+            ScadElement::Text(TextArgs {
+                text,
+                size,
+                halign,
+                valign,
+                spacing,
+                direction,
+                language,
+                script,
+                font,
+            }) => {
+                let mut args = Vec::new();
+                args.push(text);
+                args.push(named_argument_code("size", size));
+                args.push(named_argument_code("halign", halign));
+                args.push(named_argument_code("valign", valign));
+                args.push(named_argument_code("spacing", spacing));
+                args.push(named_argument_code("direction", direction));
+                args.push(named_argument_code("language", language));
+                args.push(named_argument_code("script", script));
+
+                if let Some(font) = font {
+                    args.push(named_argument_code("font", font));
+                }
+
+                format!("text({})", args.join(",")).into()
+            }
         }
     }
 }
